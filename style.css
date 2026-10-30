@@ -1,0 +1,177 @@
+/* 커스텀 스타일 및 애니메이션 */
+
+/* 부드러운 스크롤 */
+html {
+  scroll-behavior: smooth;
+}
+
+/* 커스텀 스크롤바 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
+}
+
+/* 체크박스 커스텀 애니메이션 */
+.custom-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #cbd5e1;
+  border-radius: 6px;
+  outline: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.dark .custom-checkbox {
+  border-color: #475569;
+}
+
+.custom-checkbox:hover {
+  border-color: #6366f1;
+}
+
+.custom-checkbox:checked {
+  background-color: #6366f1;
+  border-color: #6366f1;
+}
+
+.custom-checkbox:checked::after {
+  content: '';
+  width: 5px;
+  height: 9px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+  position: absolute;
+  animation: checkmark 0.2s ease-in-out forwards;
+}
+
+@keyframes checkmark {
+  0% {
+    opacity: 0;
+    transform: rotate(45deg) scale(0.6) translate(-1px, -1px);
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(45deg) scale(1) translate(-1px, -1px);
+  }
+}
+
+/* 완료된 텍스트 취소선 애니메이션 */
+.completed-text {
+  text-decoration: line-through;
+  opacity: 0.6;
+  transition: all 0.3s ease;
+}
+
+/* 태스크 카드 진입 애니메이션 */
+.task-card-enter {
+  animation: slideUp 0.25s ease-out forwards;
+}
+
+@keyframes slideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 아코디언 접힘 상태 */
+.accordion-collapsed {
+  display: none !important;
+}
+
+/* 폼 셀렉트 커스텀 배경 화살표 제거/정리 */
+select {
+  background-image: none;
+}
+
+/* ======================================================== */
+/* [신규] 노말(Normal) 모드: 눈이 편안한 내추럴 웜그레이 테마 */
+/* 완전 백색의 눈부심과 다크모드의 어두움 사이의 자연스러운 톤 */
+/* ======================================================== */
+html.theme-normal body {
+  background-color: #f5f4ef !important;
+  color: #2d3139 !important;
+}
+
+html.theme-normal header {
+  background-color: rgba(245, 244, 239, 0.9) !important;
+  border-color: #e5e3d8 !important;
+}
+
+html.theme-normal aside#sidebar {
+  background-color: #faf9f5 !important;
+  border-color: #e5e3d8 !important;
+}
+
+html.theme-normal aside#detailDrawer {
+  background-color: #faf9f5 !important;
+  border-color: #e5e3d8 !important;
+}
+
+html.theme-normal .bg-white {
+  background-color: #ffffff !important;
+  border-color: #e8e6dc !important;
+}
+
+html.theme-normal .bg-slate-50 {
+  background-color: #f7f6f0 !important;
+}
+
+html.theme-normal .bg-slate-100 {
+  background-color: #eceae0 !important;
+}
+
+html.theme-normal .bg-slate-200 {
+  background-color: #e2dfd1 !important;
+}
+
+html.theme-normal .border-slate-200 {
+  border-color: #e5e3d8 !important;
+}
+
+html.theme-normal .text-slate-900 {
+  color: #1f2328 !important;
+}
+
+html.theme-normal .text-slate-800 {
+  color: #2d3139 !important;
+}
+
+html.theme-normal .text-slate-700 {
+  color: #4b525d !important;
+}
+
+html.theme-normal .text-slate-600 {
+  color: #636b78 !important;
+}
+
+html.theme-normal .custom-checkbox {
+  border-color: #cfcbbe !important;
+}
+
+html.theme-normal .custom-checkbox:hover {
+  border-color: #6366f1 !important;
+}

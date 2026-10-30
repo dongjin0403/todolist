@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaskFlow - 똑똑한 할 일 관리</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-200">
+
+  <!-- 상단 네비게이션 헤더 -->
+  <header class="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur border-b border-slate-200 dark:border-slate-800 px-4 lg:px-8 py-3 transition-colors">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      <!-- 로고 및 모바일 메뉴 버튼 -->
+      <div class="flex items-center gap-3">
+        <button id="mobileMenuBtn" class="lg:hidden p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
+          <i data-lucide="menu" class="w-5 h-5"></i>
+        </button>
+        <div class="flex items-center gap-2">
+          <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-200 dark:shadow-none">
+            <i data-lucide="check-square" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h1 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+              TaskFlow
+              <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-medium">To-Do</span>
+            </h1>
+            <p id="todayDateStr" class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">2026년 10월 30일 목요일</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 상단 중앙: 오늘 달성률 바 (데스크톱/태블릿) -->
+      <div class="flex-1 max-w-md mx-4 hidden md:block">
+        <div class="flex items-center justify-between text-xs font-semibold mb-1">
+          <span class="text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+            <i data-lucide="award" class="w-3.5 h-3.5 text-amber-500"></i>
+            오늘의 달성률
+          </span>
+          <span id="progressText" class="text-indigo-600 dark:text-indigo-400">0% (0/0)</span>
+        </div>
+        <div class="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+          <div id="progressBar" class="bg-indigo-600 dark:bg-indigo-500 h-full w-0 transition-all duration-500 ease-out rounded-full"></div>
+        </div>
+      </div>
+
+      <!-- 헤더 우측 도구: 검색 & 테마 토글 -->
+      <div class="flex items-center gap-2">
+        <div class="relative hidden sm:block">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+          <input 
+            type="text" 
+            id="searchInput" 
+            placeholder="할 일 검색..." 
+            class="pl-9 pr-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-800 border-none rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-slate-100 w-44 lg:w-56 placeholder-slate-400 transition"
+          >
+        </div>
+        <button id="themeToggleBtn" aria-label="테마 전환" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition text-xs font-semibold cursor-pointer">
+          <i id="themeIcon" data-lucide="coffee" class="w-4 h-4 text-amber-600 dark:text-amber-400"></i>
+          <span id="themeLabelText">노말 모드</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 모바일 달성률 바 -->
+    <div class="md:hidden mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+      <div class="flex items-center justify-between text-xs font-medium mb-1">
+        <span class="text-slate-600 dark:text-slate-300">오늘 달성률</span>
+        <span id="mobileProgressText" class="text-indigo-600 dark:text-indigo-400 font-semibold">0% (0/0)</span>
+      </div>
+      <div class="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+        <div id="mobileProgressBar" class="bg-indigo-600 dark:bg-indigo-500 h-full w-0 transition-all duration-500 ease-out rounded-full"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 메인 레이아웃 -->
+  <div class="flex-1 max-w-7xl w-full mx-auto flex overflow-hidden">
+    
+    <!-- 모바일 오버레이 배경 -->
+    <div id="mobileOverlay" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 hidden lg:hidden transition-opacity"></div>
+
+    <!-- 좌측 사이드바 -->
+    <aside id="sidebar" class="fixed lg:static top-0 bottom-0 left-0 z-40 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 p-4 flex flex-col gap-6 -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+      <!-- 모바일 사이드바 닫기 헤더 -->
+      <div class="flex items-center justify-between lg:hidden pb-2 border-b border-slate-200 dark:border-slate-800">
+        <span class="font-bold text-slate-800 dark:text-slate-100">메뉴</span>
+        <button id="closeSidebarBtn" class="p-1 rounded-md text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- 기본 뷰 메뉴 -->
+      <div>
+        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3">필터 보기</span>
+        <nav class="mt-2 space-y-1">
+          <button data-view="all" class="nav-view-btn w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition text-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 dark:text-indigo-400">
+            <div class="flex items-center gap-2.5">
+              <i data-lucide="inbox" class="w-4 h-4"></i>
+              <span>전체 할 일</span>
+            </div>
+            <span id="badgeCountAll" class="text-xs px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900 font-semibold">0</span>
+          </button>
+          <button data-view="today" class="nav-view-btn w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+            <div class="flex items-center gap-2.5">
+              <i data-lucide="sun" class="w-4 h-4 text-amber-500"></i>
+              <span>오늘 할 일</span>
+            </div>
+            <span id="badgeCountToday" class="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">0</span>
+          </button>
+          <button data-view="important" class="nav-view-btn w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+            <div class="flex items-center gap-2.5">
+              <i data-lucide="star" class="w-4 h-4 text-rose-500"></i>
+              <span>중요 (높은 우선순위)</span>
+            </div>
+            <span id="badgeCountImportant" class="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">0</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- 카테고리 메뉴 -->
+      <div class="flex-1 flex flex-col min-h-0">
+        <div class="flex items-center justify-between px-3 mb-2">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">카테고리</span>
+          <button id="addCategoryBtn" title="카테고리 추가" class="p-1 rounded text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+          </button>
+        </div>
+        <nav id="categoryList" class="space-y-1 overflow-y-auto pr-1 flex-1">
+          <!-- 동적 카테고리 항목 삽입 영역 -->
+        </nav>
+      </div>
+
+      <!-- 하단 정보 카드 -->
+      <div class="pt-4 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-400 dark:text-slate-500 flex items-center justify-between">
+        <span>TaskFlow v1.0</span>
+        <button id="resetSampleDataBtn" class="hover:text-indigo-500 underline text-[11px]">샘플 데이터 복원</button>
+      </div>
+    </aside>
+
+    <!-- 중앙 메인 작업 영역 -->
+    <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
+      
+      <!-- 현재 뷰 제목 및 설명 -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <h2 id="currentViewTitle" class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+            전체 할 일
+          </h2>
+          <p id="currentViewSubtitle" class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+            등록된 모든 할 일과 마감 기한을 한눈에 관리하세요.
+          </p>
+        </div>
+      </div>
+
+      <!-- 빠른 등록 입력 바 (Quick Add Input) -->
+      <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-3 sm:p-4 transition">
+        <form id="addTodoForm" class="flex flex-col gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-5 h-5 rounded-full border-2 border-dashed border-indigo-400 dark:border-indigo-500 flex-shrink-0"></div>
+            <input 
+              type="text" 
+              id="todoTitleInput" 
+              placeholder="새로운 할 일을 입력하세요... (Enter 키로 빠른 등록)" 
+              required
+              class="w-full bg-transparent text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none text-base font-medium"
+            >
+          </div>
+          
+          <!-- 세부 옵션 바: 우선순위, 마감일, 카테고리 퀵 선택 -->
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60 text-xs">
+            <div class="flex flex-wrap items-center gap-2">
+              <!-- 우선순위 선택 -->
+              <div class="flex items-center gap-1 bg-slate-50 dark:bg-slate-900/60 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                <i data-lucide="flag" class="w-3.5 h-3.5 text-slate-400"></i>
+                <select id="todoPriorityInput" class="bg-transparent text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer">
+                  <option value="medium">우선순위: 보통</option>
+                  <option value="high">우선순위: 높음 (중요)</option>
+                  <option value="low">우선순위: 낮음</option>
+                </select>
+              </div>
+
+              <!-- 마감일 선택 -->
+              <div class="flex items-center gap-1 bg-slate-50 dark:bg-slate-900/60 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                <i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-400"></i>
+                <input type="date" id="todoDueDateInput" class="bg-transparent text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer">
+              </div>
+
+              <!-- 카테고리 선택 -->
+              <div class="flex items-center gap-1 bg-slate-50 dark:bg-slate-900/60 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                <i data-lucide="tag" class="w-3.5 h-3.5 text-slate-400"></i>
+                <select id="todoCategoryInput" class="bg-transparent text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer">
+                  <!-- 동적 로드 -->
+                </select>
+              </div>
+            </div>
+
+            <!-- 등록 버튼 -->
+            <button type="submit" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm transition flex items-center gap-1.5 ml-auto">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              <span>추가</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- 상태 필터 탭 & 정렬 드롭다운 바 -->
+      <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+        <!-- 상태 필터 (전체 / 진행 중 / 완료됨) -->
+        <div class="flex items-center bg-slate-200/80 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold">
+          <button data-status="all" class="status-tab-btn px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm transition">전체</button>
+          <button data-status="active" class="status-tab-btn px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition">진행 중</button>
+          <button data-status="completed" class="status-tab-btn px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition">완료됨</button>
+        </div>
+
+        <!-- 정렬 선택 -->
+        <div class="flex items-center gap-2 text-xs">
+          <span class="text-slate-400 hidden sm:inline flex items-center gap-1">
+            <i data-lucide="arrow-down-up" class="w-3.5 h-3.5"></i> 정렬:
+          </span>
+          <select id="sortSelect" class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium cursor-pointer">
+            <option value="created_desc">등록 최신순</option>
+            <option value="due_asc">마감일 빠른순</option>
+            <option value="priority_desc">우선순위 높은순</option>
+            <option value="title_asc">가나다순</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 진행 중인 할 일 목록 (Active Todo List) -->
+      <div class="space-y-2.5">
+        <div id="activeTodoList" class="space-y-2.5">
+          <!-- 할 일 카드 아이템이 여기에 렌더링됩니다 -->
+        </div>
+
+        <!-- 빈 상태 안내 (Empty State) -->
+        <div id="emptyState" class="hidden py-12 flex flex-col items-center justify-center text-center">
+          <div class="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center text-indigo-500 mb-3">
+            <i data-lucide="sparkles" class="w-8 h-8"></i>
+          </div>
+          <h3 class="text-base font-semibold text-slate-800 dark:text-slate-200">할 일이 없습니다!</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">새로운 태스크를 추가하거나 편안한 휴식을 즐기세요.</p>
+        </div>
+      </div>
+
+      <!-- ============================================== -->
+      <!-- [핵심 기능] 완료된 항목 섹션 (아코디언 토글) -->
+      <!-- 체크표시한 일들이 이곳에 모여 아래에서 찾을 수 있습니다 -->
+      <!-- ============================================== -->
+      <section id="completedSection" class="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+        <!-- 아코디언 헤더 바 -->
+        <div class="flex items-center justify-between mb-3">
+          <button 
+            id="toggleCompletedBtn" 
+            class="flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition group"
+          >
+            <i id="completedChevronIcon" data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-200"></i>
+            <span>완료된 항목</span>
+            <span id="completedCountBadge" class="text-xs px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold">0</span>
+          </button>
+
+          <!-- 완료 항목 비우기 버튼 -->
+          <button 
+            id="clearCompletedBtn" 
+            class="text-xs text-rose-500 hover:text-rose-600 hover:underline flex items-center gap-1 transition"
+          >
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <span>완료 목록 비우기</span>
+          </button>
+        </div>
+
+        <!-- 완료된 할 일 카드 목록 (접기/펼치기 가능) -->
+        <div id="completedTodoList" class="space-y-2.5 transition-all duration-300">
+          <!-- 완료된 할 일 아이템 렌더링 영역 -->
+        </div>
+      </section>
+
+    </main>
+
+    <!-- [화면 2] 우측 상세 편집 드로어 (Detail Drawer) -->
+    <aside id="detailDrawer" class="fixed top-0 bottom-0 right-0 z-50 w-full sm:w-96 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
+      <!-- 드로어 헤더 -->
+      <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i data-lucide="file-edit" class="w-5 h-5 text-indigo-600 dark:text-indigo-400"></i>
+          <span class="font-bold text-slate-900 dark:text-white text-base">할 일 상세 정보</span>
+        </div>
+        <button id="closeDrawerBtn" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- 드로어 폼 본문 -->
+      <div class="flex-1 overflow-y-auto p-5 space-y-5">
+        <!-- 제목 -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">할 일 제목</label>
+          <input 
+            type="text" 
+            id="drawerTitleInput" 
+            class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white font-medium"
+          >
+        </div>
+
+        <!-- 상세 메모 -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">상세 메모 & 참고 링크</label>
+          <textarea 
+            id="drawerNoteInput" 
+            rows="4" 
+            placeholder="상세한 내용이나 링크를 기록해 두세요..." 
+            class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white placeholder-slate-400 resize-none"
+          ></textarea>
+        </div>
+
+        <!-- 속성 그리드: 우선순위 / 카테고리 / 마감일 -->
+        <div class="space-y-3.5">
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">우선순위</label>
+            <select id="drawerPrioritySelect" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white font-medium">
+              <option value="high">높음 (High)</option>
+              <option value="medium">보통 (Medium)</option>
+              <option value="low">낮음 (Low)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">카테고리</label>
+            <select id="drawerCategorySelect" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white font-medium">
+              <!-- 카테고리 옵션 -->
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">마감 기한</label>
+            <input 
+              type="date" 
+              id="drawerDueDateInput" 
+              class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white font-medium"
+            >
+          </div>
+        </div>
+
+        <!-- 하위 체크리스트 (Sub-tasks) -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">세부 하위 체크리스트</label>
+            <span id="drawerSubtaskCount" class="text-xs text-indigo-500 font-medium">0/0</span>
+          </div>
+          <div id="drawerSubtaskList" class="space-y-2 mb-2">
+            <!-- 하위 태스크 목록 -->
+          </div>
+          <!-- 하위 태스크 추가 입력창 -->
+          <div class="flex items-center gap-2">
+            <input 
+              type="text" 
+              id="drawerNewSubtaskInput" 
+              placeholder="하위 단계 추가 (Enter)" 
+              class="flex-1 px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-900 dark:text-white"
+            >
+            <button id="drawerAddSubtaskBtn" class="px-2.5 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-lg text-xs font-medium transition">
+              추가
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 드로어 푸터 (저장 / 삭제 액션) -->
+      <div class="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
+        <button id="drawerDeleteBtn" class="px-3 py-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+          <span>삭제</span>
+        </button>
+        <button id="drawerSaveBtn" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow transition">
+          저장 완료
+        </button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- 카테고리 추가 모달 -->
+  <div id="categoryModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-base text-slate-900 dark:text-white">새 카테고리 추가</h3>
+        <button id="closeCategoryModalBtn" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div>
+        <label class="block text-xs text-slate-500 mb-1">카테고리 이름</label>
+        <input type="text" id="newCategoryNameInput" placeholder="예: 운동, 독서, 프로젝트" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      </div>
+      <div>
+        <label class="block text-xs text-slate-500 mb-1.5">색상 선택</label>
+        <div id="categoryColorPicker" class="flex items-center gap-2">
+          <button type="button" data-color="indigo" class="w-7 h-7 rounded-full bg-indigo-500 ring-2 ring-offset-2 ring-indigo-500 transition"></button>
+          <button type="button" data-color="rose" class="w-7 h-7 rounded-full bg-rose-500 transition"></button>
+          <button type="button" data-color="amber" class="w-7 h-7 rounded-full bg-amber-500 transition"></button>
+          <button type="button" data-color="emerald" class="w-7 h-7 rounded-full bg-emerald-500 transition"></button>
+          <button type="button" data-color="sky" class="w-7 h-7 rounded-full bg-sky-500 transition"></button>
+          <button type="button" data-color="purple" class="w-7 h-7 rounded-full bg-purple-500 transition"></button>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button id="cancelCategoryModalBtn" class="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl">취소</button>
+        <button id="confirmCategoryBtn" class="px-4 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl">생성</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
+
