@@ -1,7 +1,59 @@
 /**
  * TaskFlow - 할 일 관리 애플리케이션
- * 로컬스토리지 기반 반응형 To-Do 애플리케이션
+ * Supabase 클라우드 데이터베이스 및 로컬스토리지 연동 To-Do 앱
  */
+
+// ==========================================
+// 0. Supabase 클라우드 데이터베이스 설정
+// ==========================================
+const SUPABASE_URL = 'https://fgdmbuzadsujawwdwdcd.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_FZvq6hahecRkXv21I2Pqrg_Ikz9OH3O';
+
+let supabaseClient = null;
+try {
+  if (window.supabase && typeof window.supabase.createClient === 'function') {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log('✅ Supabase 클라이언트 연결 성공');
+  }
+} catch (e) {
+  console.warn('Supabase 초기화 경고:', e);
+}
+
+// DB 행(Row) 변환 헬퍼
+const toDbRow = (todo) => ({
+  id: String(todo.id),
+  title: todo.title,
+  completed: !!todo.completed,
+  priority: todo.priority || 'medium',
+  due_date: todo.dueDate || null,
+  category_id: todo.categoryId || null,
+  notes: todo.notes || '',
+  created_at: todo.createdAt || Date.now()
+});
+
+const fromDbRow = (row) => ({
+  id: String(row.id),
+  title: row.title,
+  completed: !!row.completed,
+  priority: row.priority || 'medium',
+  dueDate: row.due_date || '',
+  categoryId: row.category_id || 'cat-work',
+  notes: row.notes || '',
+  subtasks: [],
+  createdAt: Number(row.created_at) || Date.now()
+});
+
+const updateSyncBadge = (isOnline, message = '클라우드 동기화됨') => {
+  const badge = document.getElementById('syncBadge');
+  if (!badge) return;
+  if (isOnline) {
+    badge.className = 'hidden sm:inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 font-medium border border-emerald-200 dark:border-emerald-800';
+    badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span><span>${message}</span>`;
+  } else {
+    badge.className = 'hidden sm:inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 font-medium border border-slate-200 dark:border-slate-700';
+    badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span><span>${message}</span>`;
+  }
+};
 
 // ==========================================
 // 1. 초기 데이터 및 상태(State) 정의
@@ -581,11 +633,47 @@ const renderAll = () => {
 };
 
 // ==========================================
-// 5. 기능 액션 (CRUD, 토글, 상태 변경)
+// 5. 기능 액션 (CRUD, 토글, 상태 변경) & Supabase 동기화
 // ==========================================
 
+// Supabase 데이터 불러오기
+const fetchTodosFromSupabase = async () => {
+  if (!supabaseClient) {
+    updateSyncBadge(false, '로컬 모드');
+    return;
+  }
+
+  updateSyncBadge(true, '동기화 중...');
+  try {
+    const { data, error } = await supabaseClient
+      .from('todos')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('Supabase 데이터 조회 안내 (로컬 데이터 유지):', error.message);
+      updateSyncBadge(false, '로컬 모드');
+      return;
+    }
+
+    if (data && data.length > 0) {
+      state.todos = data.map(fromDbRow);
+      renderAll();
+      updateSyncBadge(true, '클라우드 동기화됨');
+    } else if (state.todos && state.todos.length > 0) {
+      // Supabase 테이블이 비어있다면 현재 로컬 할 일 목록을 클라우드에 최초 시딩
+      const rows = state.todos.map(toDbRow);
+      await supabaseClient.from('todos').upsert(rows);
+      updateSyncBadge(true, '클라우드 동기화됨');
+    }
+  } catch (err) {
+    console.warn('Supabase 통신 오류:', err);
+    updateSyncBadge(false, '로컬 모드');
+  }
+};
+
 // 할 일 추가
-const addTodo = (title, priority, dueDate, categoryId) => {
+const addTodo = async (title, priority, dueDate, categoryId) => {
   if (!title.trim()) return;
 
   const newTodo = {
@@ -600,12 +688,23 @@ const addTodo = (title, priority, dueDate, categoryId) => {
     createdAt: Date.now()
   };
 
+  // 1. 로컬에 즉시 반영 (빠른 UX)
   state.todos.unshift(newTodo);
   renderAll();
+
+  // 2. Supabase 클라우드 동기화
+  if (supabaseClient) {
+    try {
+      const { error } = await supabaseClient.from('todos').insert([toDbRow(newTodo)]);
+      if (error) console.warn('Supabase 저장 실패:', error.message);
+    } catch (err) {
+      console.warn('Supabase 통신 실패:', err);
+    }
+  }
 };
 
 // 완료 상태 토글 (진행 중 <-> 완료)
-const toggleTodoCompletion = (todoId) => {
+const toggleTodoCompletion = async (todoId) => {
   const target = state.todos.find(t => t.id === todoId);
   if (!target) return;
 
@@ -616,26 +715,63 @@ const toggleTodoCompletion = (todoId) => {
     state.isCompletedCollapsed = false;
   }
 
+  // 1. 로컬에 즉시 반영
   renderAll();
+
+  // 2. Supabase 클라우드 동기화
+  if (supabaseClient) {
+    try {
+      const { error } = await supabaseClient
+        .from('todos')
+        .update({ completed: target.completed })
+        .eq('id', String(todoId));
+      if (error) console.warn('Supabase 완료 상태 갱신 실패:', error.message);
+    } catch (err) {
+      console.warn('Supabase 통신 실패:', err);
+    }
+  }
 };
 
 // 할 일 삭제
-const deleteTodo = (todoId) => {
+const deleteTodo = async (todoId) => {
   state.todos = state.todos.filter(t => t.id !== todoId);
   if (state.selectedTodoId === todoId) {
     closeDetailDrawer();
   }
+
+  // 1. 로컬 반영
   renderAll();
+
+  // 2. Supabase 동기화
+  if (supabaseClient) {
+    try {
+      const { error } = await supabaseClient
+        .from('todos')
+        .delete()
+        .eq('id', String(todoId));
+      if (error) console.warn('Supabase 삭제 실패:', error.message);
+    } catch (err) {
+      console.warn('Supabase 통신 실패:', err);
+    }
+  }
 };
 
 // 완료 목록 전체 삭제
-const clearCompletedTodos = () => {
+const clearCompletedTodos = async () => {
   const count = state.todos.filter(t => t.completed).length;
   if (count === 0) return;
 
   if (confirm(`완료된 ${count}개의 할 일을 모두 삭제하시겠습니까?`)) {
     state.todos = state.todos.filter(t => !t.completed);
     renderAll();
+
+    if (supabaseClient) {
+      try {
+        await supabaseClient.from('todos').delete().eq('completed', true);
+      } catch (err) {
+        console.warn('Supabase 일괄 삭제 오류:', err);
+      }
+    }
   }
 };
 
@@ -705,7 +841,7 @@ const renderDrawerSubtasks = (todo) => {
   lucide.createIcons();
 };
 
-const saveDrawerChanges = () => {
+const saveDrawerChanges = async () => {
   if (!state.selectedTodoId) return;
   const todo = state.todos.find(t => t.id === state.selectedTodoId);
   if (!todo) return;
@@ -719,6 +855,19 @@ const saveDrawerChanges = () => {
 
   closeDetailDrawer();
   renderAll();
+
+  // Supabase 동기화
+  if (supabaseClient) {
+    try {
+      const { error } = await supabaseClient
+        .from('todos')
+        .update(toDbRow(todo))
+        .eq('id', String(todo.id));
+      if (error) console.warn('Supabase 상세 수정 반영 실패:', error.message);
+    } catch (err) {
+      console.warn('Supabase 통신 오류:', err);
+    }
+  }
 };
 
 // ==========================================
@@ -928,5 +1077,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initEventListeners();
   updateViewHeaders();
   renderAll();
+  // Supabase 클라우드 데이터베이스 연동 및 최신 데이터 동기화
+  fetchTodosFromSupabase();
 });
 

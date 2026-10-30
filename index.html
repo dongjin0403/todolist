@@ -26,6 +26,8 @@
   </script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Supabase JS Client CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-200">
@@ -46,6 +48,10 @@
             <h1 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
               TaskFlow
               <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-medium">To-Do</span>
+              <span id="syncBadge" title="Supabase 클라우드 데이터베이스와 실시간 동기화 중" class="hidden sm:inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 font-medium border border-emerald-200 dark:border-emerald-800">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>클라우드 동기화</span>
+              </span>
             </h1>
             <p id="todayDateStr" class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">2026년 10월 30일 목요일</p>
           </div>
