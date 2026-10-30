@@ -28,7 +28,8 @@ const toDbRow = (todo) => ({
   due_date: todo.dueDate || null,
   category_id: todo.categoryId || null,
   notes: todo.notes || '',
-  created_at: todo.createdAt || Date.now()
+  created_at: todo.createdAt || Date.now(),
+  user_id: state.currentUser ? state.currentUser.id : null
 });
 
 const fromDbRow = (row) => ({
@@ -141,7 +142,7 @@ const getInitialTheme = () => {
 };
 
 const state = {
-  todos: JSON.parse(localStorage.getItem('taskflow_todos')) || DEFAULT_TODOS,
+  todos: JSON.parse(localStorage.getItem('taskflow_todos')) || [],
   categories: JSON.parse(localStorage.getItem('taskflow_categories')) || DEFAULT_CATEGORIES,
   currentView: 'all', // 'all' | 'today' | 'important' | categoryId
   statusFilter: 'all', // 'all' | 'active' | 'completed'
@@ -149,13 +150,37 @@ const state = {
   searchQuery: '',
   isCompletedCollapsed: JSON.parse(localStorage.getItem('taskflow_completed_collapsed')) ?? false,
   selectedTodoId: null,
-  theme: getInitialTheme() // 'light' | 'normal' | 'dark'
+  theme: getInitialTheme(), // 'light' | 'normal' | 'dark'
+  currentUser: null,
+  authMode: 'signin' // 'signin' | 'signup'
 };
 
 // ==========================================
 // 2. DOM 요소 참조
 // ==========================================
 const elements = {
+  // 인증 컨테이너 및 폼
+  authContainer: document.getElementById('authContainer'),
+  mainLayout: document.getElementById('mainLayout'),
+  userProfileArea: document.getElementById('userProfileArea'),
+  userEmailText: document.getElementById('userEmailText'),
+  logoutBtn: document.getElementById('logoutBtn'),
+  headerProgressDesktop: document.getElementById('headerProgressDesktop'),
+  headerSearchArea: document.getElementById('headerSearchArea'),
+  headerProgressMobile: document.getElementById('headerProgressMobile'),
+  tabSignInBtn: document.getElementById('tabSignInBtn'),
+  tabSignUpBtn: document.getElementById('tabSignUpBtn'),
+  authForm: document.getElementById('authForm'),
+  authHeading: document.getElementById('authHeading'),
+  authSubheading: document.getElementById('authSubheading'),
+  authEmailInput: document.getElementById('authEmailInput'),
+  authPasswordInput: document.getElementById('authPasswordInput'),
+  passwordConfirmGroup: document.getElementById('passwordConfirmGroup'),
+  authPasswordConfirmInput: document.getElementById('authPasswordConfirmInput'),
+  authMessage: document.getElementById('authMessage'),
+  authSubmitBtn: document.getElementById('authSubmitBtn'),
+  authSubmitText: document.getElementById('authSubmitText'),
+
   // 헤더
   todayDateStr: document.getElementById('todayDateStr'),
   progressBar: document.getElementById('progressBar'),
@@ -633,13 +658,77 @@ const renderAll = () => {
 };
 
 // ==========================================
+// 4.1 인증 UI 관리 및 모드 전환
+// ==========================================
+
+const showAuthMessage = (text, isError = true) => {
+  if (!elements.authMessage) return;
+  elements.authMessage.textContent = text;
+  elements.authMessage.className = `p-3 rounded-xl text-xs font-medium ${
+    isError 
+      ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200 dark:border-rose-800' 
+      : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
+  }`;
+  elements.authMessage.classList.remove('hidden');
+};
+
+const clearAuthMessage = () => {
+  if (elements.authMessage) elements.authMessage.classList.add('hidden');
+};
+
+const switchAuthMode = (mode) => {
+  state.authMode = mode;
+  clearAuthMessage();
+
+  if (mode === 'signup') {
+    elements.tabSignUpBtn.className = 'py-2.5 rounded-xl bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm transition font-bold';
+    elements.tabSignInBtn.className = 'py-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition';
+    elements.authHeading.textContent = 'TaskFlow 회원가입';
+    elements.authSubheading.textContent = '이메일과 비밀번호로 간편하게 가입하세요.';
+    elements.authSubmitText.textContent = '회원가입 완료';
+    elements.passwordConfirmGroup.classList.remove('hidden');
+    elements.authPasswordConfirmInput.required = true;
+  } else {
+    elements.tabSignInBtn.className = 'py-2.5 rounded-xl bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm transition font-bold';
+    elements.tabSignUpBtn.className = 'py-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition';
+    elements.authHeading.textContent = 'TaskFlow 로그인';
+    elements.authSubheading.textContent = '나만의 안전한 클라우드 할 일 목록을 시작하세요.';
+    elements.authSubmitText.textContent = '로그인하기';
+    elements.passwordConfirmGroup.classList.add('hidden');
+    elements.authPasswordConfirmInput.required = false;
+  }
+};
+
+const updateAuthUI = (user) => {
+  state.currentUser = user || null;
+
+  if (state.currentUser) {
+    elements.authContainer.classList.add('hidden');
+    elements.mainLayout.classList.remove('hidden');
+    elements.userProfileArea.classList.remove('hidden');
+    elements.userEmailText.textContent = state.currentUser.email || '';
+    if (elements.headerProgressDesktop) elements.headerProgressDesktop.classList.remove('hidden');
+    if (elements.headerSearchArea) elements.headerSearchArea.classList.remove('hidden');
+    if (elements.headerProgressMobile) elements.headerProgressMobile.classList.remove('hidden');
+  } else {
+    elements.authContainer.classList.remove('hidden');
+    elements.mainLayout.classList.add('hidden');
+    elements.userProfileArea.classList.add('hidden');
+    if (elements.headerProgressDesktop) elements.headerProgressDesktop.classList.add('hidden');
+    if (elements.headerSearchArea) elements.headerSearchArea.classList.add('hidden');
+    if (elements.headerProgressMobile) elements.headerProgressMobile.classList.add('hidden');
+  }
+  lucide.createIcons();
+};
+
+// ==========================================
 // 5. 기능 액션 (CRUD, 토글, 상태 변경) & Supabase 동기화
 // ==========================================
 
-// Supabase 데이터 불러오기
+// Supabase 데이터 불러오기 (로그인된 본인 데이터만 RLS로 안전하게 조회)
 const fetchTodosFromSupabase = async () => {
-  if (!supabaseClient) {
-    updateSyncBadge(false, '로컬 모드');
+  if (!supabaseClient || !state.currentUser) {
+    updateSyncBadge(false, '로그인 필요');
     return;
   }
 
@@ -651,24 +740,17 @@ const fetchTodosFromSupabase = async () => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.warn('Supabase 데이터 조회 안내 (로컬 데이터 유지):', error.message);
-      updateSyncBadge(false, '로컬 모드');
+      console.warn('Supabase 데이터 조회 안내:', error.message);
+      updateSyncBadge(false, '동기화 오류');
       return;
     }
 
-    if (data && data.length > 0) {
-      state.todos = data.map(fromDbRow);
-      renderAll();
-      updateSyncBadge(true, '클라우드 동기화됨');
-    } else if (state.todos && state.todos.length > 0) {
-      // Supabase 테이블이 비어있다면 현재 로컬 할 일 목록을 클라우드에 최초 시딩
-      const rows = state.todos.map(toDbRow);
-      await supabaseClient.from('todos').upsert(rows);
-      updateSyncBadge(true, '클라우드 동기화됨');
-    }
+    state.todos = (data || []).map(fromDbRow);
+    renderAll();
+    updateSyncBadge(true, '클라우드 동기화됨');
   } catch (err) {
     console.warn('Supabase 통신 오류:', err);
-    updateSyncBadge(false, '로컬 모드');
+    updateSyncBadge(false, '오프라인');
   }
 };
 
@@ -1068,16 +1150,140 @@ const initEventListeners = () => {
     closeCategoryModal();
     renderAll();
   });
+  // ==========================================
+  // 인증 관련 이벤트 리스너 (회원가입 / 로그인 / 로그아웃)
+  // ==========================================
+  if (elements.tabSignInBtn) {
+    elements.tabSignInBtn.addEventListener('click', () => switchAuthMode('signin'));
+  }
+  if (elements.tabSignUpBtn) {
+    elements.tabSignUpBtn.addEventListener('click', () => switchAuthMode('signup'));
+  }
+
+  if (elements.authForm) {
+    elements.authForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!supabaseClient) {
+        showAuthMessage('Supabase 연결 상태를 확인할 수 없습니다.', true);
+        return;
+      }
+
+      const email = elements.authEmailInput.value.trim();
+      const password = elements.authPasswordInput.value;
+
+      if (!email || !password) {
+        showAuthMessage('이메일과 비밀번호를 입력해 주세요.', true);
+        return;
+      }
+
+      if (state.authMode === 'signup') {
+        const passwordConfirm = elements.authPasswordConfirmInput.value;
+        if (password !== passwordConfirm) {
+          showAuthMessage('비밀번호가 서로 일치하지 않습니다.', true);
+          return;
+        }
+      }
+
+      elements.authSubmitBtn.disabled = true;
+      elements.authSubmitText.textContent = state.authMode === 'signup' ? '가입 처리 중...' : '로그인 중...';
+      clearAuthMessage();
+
+      try {
+        if (state.authMode === 'signup') {
+          const { data, error } = await supabaseClient.auth.signUp({
+            email,
+            password
+          });
+          if (error) {
+            showAuthMessage(error.message, true);
+          } else {
+            if (data.session) {
+              showAuthMessage('회원가입 성공! 로그인되었습니다.', false);
+              updateAuthUI(data.session.user);
+              fetchTodosFromSupabase();
+            } else {
+              showAuthMessage('회원가입 완료! 로그인해 주세요.', false);
+              switchAuthMode('signin');
+            }
+          }
+        } else {
+          const { data, error } = await supabaseClient.auth.signInWithPassword({
+            email,
+            password
+          });
+          if (error) {
+            showAuthMessage(
+              error.message === 'Invalid login credentials' 
+                ? '이메일 또는 비밀번호가 올바르지 않습니다.' 
+                : error.message, 
+              true
+            );
+          } else {
+            updateAuthUI(data.user);
+            fetchTodosFromSupabase();
+          }
+        }
+      } catch (err) {
+        showAuthMessage('인증 요청 중 오류가 발생했습니다: ' + err.message, true);
+      } finally {
+        elements.authSubmitBtn.disabled = false;
+        elements.authSubmitText.textContent = state.authMode === 'signup' ? '회원가입 완료' : '로그인하기';
+      }
+    });
+  }
+
+  // 로그아웃
+  if (elements.logoutBtn) {
+    elements.logoutBtn.addEventListener('click', async () => {
+      if (confirm('로그아웃 하시겠습니까?')) {
+        if (supabaseClient) {
+          await supabaseClient.auth.signOut();
+        }
+        state.currentUser = null;
+        state.todos = [];
+        updateAuthUI(null);
+        renderAll();
+      }
+    });
+  }
 };
 
 // ==========================================
-// 9. 앱 초기 실행
+// 9. 앱 초기 실행 및 세션 복원
 // ==========================================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   initEventListeners();
   updateViewHeaders();
   renderAll();
-  // Supabase 클라우드 데이터베이스 연동 및 최신 데이터 동기화
-  fetchTodosFromSupabase();
+
+  // Supabase 세션 확인 및 상태 감지
+  if (supabaseClient) {
+    try {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session?.user) {
+        updateAuthUI(session.user);
+        fetchTodosFromSupabase();
+      } else {
+        updateAuthUI(null);
+      }
+
+      // 로그인/로그아웃 실시간 상태 감지
+      supabaseClient.auth.onAuthStateChange((event, session) => {
+        if (session?.user) {
+          updateAuthUI(session.user);
+          fetchTodosFromSupabase();
+        } else {
+          updateAuthUI(null);
+          state.todos = [];
+          renderAll();
+        }
+      });
+    } catch (e) {
+      console.warn('세션 확인 오류:', e);
+      updateAuthUI(null);
+    }
+  } else {
+    updateAuthUI(null);
+  }
 });
 

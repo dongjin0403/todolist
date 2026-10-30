@@ -59,7 +59,7 @@
       </div>
 
       <!-- 상단 중앙: 오늘 달성률 바 (데스크톱/태블릿) -->
-      <div class="flex-1 max-w-md mx-4 hidden md:block">
+      <div id="headerProgressDesktop" class="flex-1 max-w-md mx-4 hidden md:block">
         <div class="flex items-center justify-between text-xs font-semibold mb-1">
           <span class="text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
             <i data-lucide="award" class="w-3.5 h-3.5 text-amber-500"></i>
@@ -74,7 +74,7 @@
 
       <!-- 헤더 우측 도구: 검색 & 테마 토글 -->
       <div class="flex items-center gap-2">
-        <div class="relative hidden sm:block">
+        <div id="headerSearchArea" class="relative hidden sm:block">
           <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
           <input 
             type="text" 
@@ -87,11 +87,23 @@
           <i id="themeIcon" data-lucide="coffee" class="w-4 h-4 text-amber-600 dark:text-amber-400"></i>
           <span id="themeLabelText">노말 모드</span>
         </button>
+
+        <!-- 사용자 프로필 & 로그아웃 (로그인 시 표시) -->
+        <div id="userProfileArea" class="hidden flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-700">
+          <div class="hidden sm:flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+            <i data-lucide="user" class="w-3.5 h-3.5 text-indigo-500"></i>
+            <span id="userEmailText" class="max-w-[150px] truncate font-medium"></span>
+          </div>
+          <button id="logoutBtn" title="로그아웃" class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition cursor-pointer">
+            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+            <span>로그아웃</span>
+          </button>
+        </div>
       </div>
     </div>
 
     <!-- 모바일 달성률 바 -->
-    <div class="md:hidden mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+    <div id="headerProgressMobile" class="hidden md:hidden mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
       <div class="flex items-center justify-between text-xs font-medium mb-1">
         <span class="text-slate-600 dark:text-slate-300">오늘 달성률</span>
         <span id="mobileProgressText" class="text-indigo-600 dark:text-indigo-400 font-semibold">0% (0/0)</span>
@@ -102,8 +114,95 @@
     </div>
   </header>
 
-  <!-- 메인 레이아웃 -->
-  <div class="flex-1 max-w-7xl w-full mx-auto flex overflow-hidden">
+  <!-- [신규] 로그인 / 회원가입 인증 화면 (비로그인 시 표시) -->
+  <section id="authContainer" class="flex-1 flex items-center justify-center p-4 sm:p-6 my-auto">
+    <div class="max-w-md w-full bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-700/80 p-6 sm:p-8 transition">
+      <!-- 인증 헤더 -->
+      <div class="text-center mb-6">
+        <div class="w-14 h-14 mx-auto mb-3 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200 dark:shadow-none">
+          <i data-lucide="check-square" class="w-8 h-8"></i>
+        </div>
+        <h2 id="authHeading" class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">TaskFlow 로그인</h2>
+        <p id="authSubheading" class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+          나만의 안전한 클라우드 할 일 목록을 시작하세요.
+        </p>
+      </div>
+
+      <!-- 로그인 / 회원가입 탭 -->
+      <div class="grid grid-cols-2 p-1 bg-slate-100 dark:bg-slate-900/80 rounded-2xl mb-6 text-xs font-semibold">
+        <button id="tabSignInBtn" type="button" class="py-2.5 rounded-xl bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm transition">
+          로그인
+        </button>
+        <button id="tabSignUpBtn" type="button" class="py-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition">
+          회원가입
+        </button>
+      </div>
+
+      <!-- 인증 폼 -->
+      <form id="authForm" class="space-y-4">
+        <!-- 이메일 입력 -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">이메일 주소</label>
+          <div class="relative">
+            <i data-lucide="mail" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+            <input 
+              type="email" 
+              id="authEmailInput" 
+              required 
+              placeholder="example@email.com" 
+              class="w-full pl-10 pr-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white"
+            >
+          </div>
+        </div>
+
+        <!-- 비밀번호 입력 -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">비밀번호</label>
+          <div class="relative">
+            <i data-lucide="lock" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+            <input 
+              type="password" 
+              id="authPasswordInput" 
+              required 
+              minlength="6"
+              placeholder="6자리 이상 입력" 
+              class="w-full pl-10 pr-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white"
+            >
+          </div>
+        </div>
+
+        <!-- 비밀번호 확인 (회원가입 시에만 노출) -->
+        <div id="passwordConfirmGroup" class="hidden">
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">비밀번호 확인</label>
+          <div class="relative">
+            <i data-lucide="shield-check" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+            <input 
+              type="password" 
+              id="authPasswordConfirmInput" 
+              minlength="6"
+              placeholder="비밀번호 재입력" 
+              class="w-full pl-10 pr-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white"
+            >
+          </div>
+        </div>
+
+        <!-- 상태 메시지 박스 -->
+        <div id="authMessage" class="hidden p-3 rounded-xl text-xs font-medium"></div>
+
+        <!-- 제출 버튼 -->
+        <button 
+          type="submit" 
+          id="authSubmitBtn" 
+          class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <span id="authSubmitText">로그인하기</span>
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <!-- 메인 레이아웃 (로그인 시에만 표시) -->
+  <div id="mainLayout" class="hidden flex-1 max-w-7xl w-full mx-auto flex overflow-hidden">
     
     <!-- 모바일 오버레이 배경 -->
     <div id="mobileOverlay" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 hidden lg:hidden transition-opacity"></div>
